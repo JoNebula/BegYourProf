@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-version="${1:-0.3.0}"
+version="${1:-0.3.1}"
 app="$project_dir/dist/BegYourProf.app"
 archive="$project_dir/dist/BegYourProf-v${version}-macOS-universal.zip"
 

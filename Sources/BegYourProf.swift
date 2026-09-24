@@ -185,7 +185,13 @@ struct AuraCard: View {
     }
 
     private var dayLabel: String {
-        let days = remainingSeconds / 86_400
+        guard let deadline = model.deadline else { return "D-DAY" }
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: now),
+            to: calendar.startOfDay(for: deadline)
+        ).day ?? 0
         return days > 0 ? "D-\(days)" : "D-DAY"
     }
 
@@ -268,18 +274,14 @@ struct AuraCard: View {
             .frame(height: 208)
 
             Button(action: addPhrase) {
-                HStack(spacing: 4) {
-                    Text(model.portrait == nil ? "사진을 넣어 후광을 켜세요" : model.messages[model.messageIndex])
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                    Image(systemName: "pencil")
-                        .font(.system(size: 9))
-                }
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AuraStyle.ink)
-                .frame(maxWidth: .infinity)
-                .frame(height: 32)
-                .contentTransition(.opacity)
+                Text(model.portrait == nil ? "사진을 넣어 후광을 켜세요" : model.messages[model.messageIndex])
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AuraStyle.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 32)
+                    .contentTransition(.opacity)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("문구 추가하기")
