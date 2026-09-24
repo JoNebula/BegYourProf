@@ -20,4 +20,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: BegYourProf-macOS-universal
-          path: dist/BegYourProf-v0.1.0-macOS-universal.zip
+          path: dist/BegYourProf-v0.2.0-macOS-universal.zip

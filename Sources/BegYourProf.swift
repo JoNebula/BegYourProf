@@ -48,6 +48,8 @@ final class AuraModel: ObservableObject {
     @Published var worshipCount = UserDefaults.standard.integer(forKey: "worshipCount")
     @Published var messageIndex = 0
     @Published var showBlessing = false
+    @Published var deadline = UserDefaults.standard.object(forKey: "deadline") as? Date
+    @Published var deadlineTitle = UserDefaults.standard.string(forKey: "deadlineTitle") ?? "D-DAY"
 
     let messages = [
         "오늘도 논문에 빛이 있으라",
@@ -70,6 +72,20 @@ final class AuraModel: ObservableObject {
         showBlessing = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
             self?.showBlessing = false
+        }
+    }
+
+    func setDeadline(_ date: Date?, title: String = "D-DAY") {
+        deadline = date
+        if let date {
+            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            deadlineTitle = trimmedTitle.isEmpty ? "D-DAY" : trimmedTitle
+            UserDefaults.standard.set(date, forKey: "deadline")
+            UserDefaults.standard.set(deadlineTitle, forKey: "deadlineTitle")
+        } else {
+            deadlineTitle = "D-DAY"
+            UserDefaults.standard.removeObject(forKey: "deadline")
+            UserDefaults.standard.removeObject(forKey: "deadlineTitle")
         }
     }
 }
@@ -141,6 +157,18 @@ struct AuraCard: View {
     @ObservedObject var model: AuraModel
     let hide: () -> Void
     let choosePhoto: () -> Void
+    let chooseDeadline: () -> Void
+    @State private var now = Date()
+
+    private var countdown: String {
+        guard let deadline = model.deadline else { return "D-day 설정하기" }
+        let remaining = max(0, Int(ceil(deadline.timeIntervalSince(now))))
+        let days = remaining / 86_400
+        let hours = remaining % 86_400 / 3_600
+        let minutes = remaining % 3_600 / 60
+        let seconds = remaining % 60
+        return "\(days)D \(String(format: "%02dH%02dM%02dS", hours, minutes, seconds))"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -220,6 +248,35 @@ struct AuraCard: View {
                 .contentTransition(.opacity)
                 .padding(.top, 1)
 
+            Button(action: chooseDeadline) {
+                HStack(spacing: 5) {
+                    Image(systemName: "hourglass")
+                    Text(model.deadline == nil ? "D-DAY" : model.deadlineTitle)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                        .frame(maxWidth: 52, alignment: .leading)
+                    Spacer(minLength: 3)
+                    Text(countdown)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(AuraStyle.darkGold)
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 9))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(AuraStyle.gold.opacity(0.45), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.deadline == nil ? "D-day 설정하기" : "\(model.deadlineTitle) \(countdown), 변경하기")
+            .padding(.horizontal, 25)
+            .padding(.top, 7)
+            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
+
             Button(action: {
                 if model.portrait == nil { choosePhoto() } else { model.worship() }
             }) {
@@ -250,7 +307,7 @@ struct AuraCard: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 25)
-            .padding(.top, 14)
+            .padding(.top, 9)
 
             HStack(spacing: 4) {
                 Image(systemName: "hand.draw")
@@ -261,7 +318,7 @@ struct AuraCard: View {
             .padding(.top, 8)
             .padding(.bottom, 13)
         }
-        .frame(width: 270, height: 365)
+        .frame(width: 270, height: 401)
         .background {
             RoundedRectangle(cornerRadius: 23, style: .continuous)
                 .fill(.regularMaterial)
@@ -320,11 +377,12 @@ struct ResizableAuraView: View {
     @ObservedObject var model: AuraModel
     let hide: () -> Void
     let choosePhoto: () -> Void
+    let chooseDeadline: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
-            let scale = min(geometry.size.width / 270, geometry.size.height / 365)
-            AuraCard(model: model, hide: hide, choosePhoto: choosePhoto)
+            let scale = min(geometry.size.width / 270, geometry.size.height / 401)
+            AuraCard(model: model, hide: hide, choosePhoto: choosePhoto, chooseDeadline: chooseDeadline)
                 .scaleEffect(scale)
                 .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -339,6 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var toggleItem: NSMenuItem!
     private var worshipItem: NSMenuItem!
     private var resetPhotoItem: NSMenuItem!
+    private var clearDeadlineItem: NSMenuItem!
     private var isOverlayVisible = UserDefaults.standard.object(forKey: "overlayVisible") as? Bool ?? true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -347,11 +406,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let card = ResizableAuraView(
             model: model,
             hide: { [weak self] in self?.toggleOverlay() },
-            choosePhoto: { [weak self] in self?.choosePortrait() }
+            choosePhoto: { [weak self] in self?.choosePortrait() },
+            chooseDeadline: { [weak self] in self?.chooseDeadline() }
         )
         let savedWidth = UserDefaults.standard.double(forKey: "overlayWidth")
         let initialWidth = savedWidth > 0 ? min(max(savedWidth, 200), 540) : 270
-        let initialHeight = initialWidth * 365 / 270
+        let initialHeight = initialWidth * 401 / 270
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .resizable],
@@ -370,9 +430,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.contentMinSize = NSSize(width: 200, height: 200 * 365 / 270)
-        panel.contentMaxSize = NSSize(width: 540, height: 730)
-        panel.contentAspectRatio = NSSize(width: 270, height: 365)
+        panel.contentMinSize = NSSize(width: 200, height: 200 * 401 / 270)
+        panel.contentMaxSize = NSSize(width: 540, height: 802)
+        panel.contentAspectRatio = NSSize(width: 270, height: 401)
         panel.delegate = self
 
         if let screen = NSScreen.main {
@@ -405,6 +465,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         resetPhotoItem.target = self
         resetPhotoItem.isEnabled = model.usingCustomPortrait
         menu.addItem(resetPhotoItem)
+        menu.addItem(.separator())
+
+        let deadlineItem = NSMenuItem(title: "D-day 설정 / 변경…", action: #selector(chooseDeadline), keyEquivalent: "d")
+        deadlineItem.target = self
+        menu.addItem(deadlineItem)
+
+        clearDeadlineItem = NSMenuItem(title: "D-day 지우기", action: #selector(clearDeadline), keyEquivalent: "")
+        clearDeadlineItem.target = self
+        clearDeadlineItem.isEnabled = model.deadline != nil
+        menu.addItem(clearDeadlineItem)
         menu.addItem(.separator())
 
         worshipItem = NSMenuItem(title: "🙏 한 번 더 경배하기", action: #selector(worshipFromMenu), keyEquivalent: "w")
@@ -489,6 +559,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             alert.informativeText = error.localizedDescription
             alert.runModal()
         }
+    }
+
+    @objc private func chooseDeadline() {
+        let picker = NSDatePicker(frame: NSRect(x: 0, y: 0, width: 260, height: 30))
+        picker.datePickerStyle = .textFieldAndStepper
+        picker.datePickerElements = [.yearMonthDay, .hourMinuteSecond]
+        picker.minDate = Date()
+        picker.dateValue = model.deadline.flatMap { $0 > Date() ? $0 : nil }
+            ?? Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+
+        let titleField = NSTextField(frame: NSRect(x: 0, y: 39, width: 260, height: 25))
+        titleField.placeholderString = "이름 (예: ICLR)"
+        titleField.stringValue = model.deadline == nil ? "" : model.deadlineTitle
+        let fields = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 64))
+        fields.addSubview(titleField)
+        fields.addSubview(picker)
+
+        let alert = NSAlert()
+        alert.messageText = "D-day 설정"
+        alert.informativeText = "이름과 목표 날짜·시각을 선택하세요. 남은 시간이 카드에 초 단위로 표시됩니다."
+        alert.accessoryView = fields
+        alert.addButton(withTitle: "저장")
+        alert.addButton(withTitle: "취소")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        model.setDeadline(picker.dateValue, title: titleField.stringValue)
+        clearDeadlineItem.isEnabled = true
+        if !isOverlayVisible { toggleOverlay() }
+        panel.orderFrontRegardless()
+    }
+
+    @objc private func clearDeadline() {
+        model.setDeadline(nil)
+        clearDeadlineItem.isEnabled = false
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
