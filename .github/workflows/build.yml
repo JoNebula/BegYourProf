@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public assets
+        run: ./scripts/check-public-assets.sh
+      - name: Build universal app
+        run: ./scripts/build.sh
+      - name: Package app
+        run: ./scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BegYourProf-macOS-universal
+          path: dist/BegYourProf-v0.1.0-macOS-universal.zip

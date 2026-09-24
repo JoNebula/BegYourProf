@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+dist/
+*.app/
+*.zip
+Assets/private/
+Assets/custom-portrait.*
+*.jpg
+*.jpeg
+*.heic
+*.webp
+*.tif
+*.tiff

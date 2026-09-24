@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public assets
+        run: ./scripts/check-public-assets.sh
+      - name: Build and package
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION="${VERSION#v}"
+          export VERSION
+          ./scripts/build.sh
+          ./scripts/package.sh "$VERSION"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/BegYourProf-*.zip --generate-notes
