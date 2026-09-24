@@ -5,7 +5,7 @@ project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="$project_dir/.build"
 dist_dir="$project_dir/dist"
 app="$dist_dir/BegYourProf.app"
-version="${VERSION:-0.2.0}"
+version="${VERSION:-0.2.1}"
 
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "VERSION must be in major.minor.patch format" >&2

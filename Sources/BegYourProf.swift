@@ -160,14 +160,21 @@ struct AuraCard: View {
     let chooseDeadline: () -> Void
     @State private var now = Date()
 
-    private var countdown: String {
-        guard let deadline = model.deadline else { return "D-day 설정하기" }
-        let remaining = max(0, Int(ceil(deadline.timeIntervalSince(now))))
-        let days = remaining / 86_400
-        let hours = remaining % 86_400 / 3_600
-        let minutes = remaining % 3_600 / 60
-        let seconds = remaining % 60
-        return "\(days)D \(String(format: "%02dH%02dM%02dS", hours, minutes, seconds))"
+    private var remainingSeconds: Int {
+        guard let deadline = model.deadline else { return 0 }
+        return max(0, Int(ceil(deadline.timeIntervalSince(now))))
+    }
+
+    private var dayLabel: String {
+        let days = remainingSeconds / 86_400
+        return days > 0 ? "D-\(days)" : "D-DAY"
+    }
+
+    private var clockText: String {
+        let hours = remainingSeconds % 86_400 / 3_600
+        let minutes = remainingSeconds % 3_600 / 60
+        let seconds = remainingSeconds % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
     var body: some View {
@@ -249,30 +256,47 @@ struct AuraCard: View {
                 .padding(.top, 1)
 
             Button(action: chooseDeadline) {
-                HStack(spacing: 5) {
-                    Image(systemName: "hourglass")
-                    Text(model.deadline == nil ? "D-DAY" : model.deadlineTitle)
-                        .fontWeight(.bold)
-                        .lineLimit(1)
-                        .frame(maxWidth: 52, alignment: .leading)
-                    Spacer(minLength: 3)
-                    Text(countdown)
-                        .fontWeight(.semibold)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
+                HStack(alignment: .center, spacing: 6) {
+                    if model.deadline == nil {
+                        Image(systemName: "calendar.badge.clock")
+                        Text("D-day 설정하기")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    } else {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(model.deadlineTitle.uppercased())
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .tracking(1)
+                                .lineLimit(1)
+                            Text(dayLabel)
+                                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                .minimumScaleFactor(0.8)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 2)
+                        VStack(alignment: .trailing, spacing: 3) {
+                            Text("남은 시간")
+                                .font(.system(size: 9, weight: .medium, design: .rounded))
+                            Text(clockText)
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .contentTransition(.numericText())
+                        }
+                    }
                 }
                 .font(.system(size: 12, design: .rounded))
                 .foregroundStyle(AuraStyle.darkGold)
-                .padding(.horizontal, 10)
-                .frame(height: 30)
-                .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 9))
+                .padding(.horizontal, 12)
+                .frame(height: 49)
+                .background(.white.opacity(0.78), in: RoundedRectangle(cornerRadius: 12))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 9)
-                        .stroke(AuraStyle.gold.opacity(0.45), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AuraStyle.gold.opacity(0.55), lineWidth: 1)
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(model.deadline == nil ? "D-day 설정하기" : "\(model.deadlineTitle) \(countdown), 변경하기")
+            .accessibilityLabel(model.deadline == nil ? "D-day 설정하기" : "\(model.deadlineTitle) \(dayLabel), \(clockText), 변경하기")
             .padding(.horizontal, 25)
             .padding(.top, 7)
             .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now = $0 }
@@ -318,7 +342,7 @@ struct AuraCard: View {
             .padding(.top, 8)
             .padding(.bottom, 13)
         }
-        .frame(width: 270, height: 401)
+        .frame(width: 270, height: 420)
         .background {
             RoundedRectangle(cornerRadius: 23, style: .continuous)
                 .fill(.regularMaterial)
@@ -381,7 +405,7 @@ struct ResizableAuraView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let scale = min(geometry.size.width / 270, geometry.size.height / 401)
+            let scale = min(geometry.size.width / 270, geometry.size.height / 420)
             AuraCard(model: model, hide: hide, choosePhoto: choosePhoto, chooseDeadline: chooseDeadline)
                 .scaleEffect(scale)
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -411,7 +435,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         let savedWidth = UserDefaults.standard.double(forKey: "overlayWidth")
         let initialWidth = savedWidth > 0 ? min(max(savedWidth, 200), 540) : 270
-        let initialHeight = initialWidth * 401 / 270
+        let initialHeight = initialWidth * 420 / 270
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .resizable],
@@ -430,9 +454,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.contentMinSize = NSSize(width: 200, height: 200 * 401 / 270)
-        panel.contentMaxSize = NSSize(width: 540, height: 802)
-        panel.contentAspectRatio = NSSize(width: 270, height: 401)
+        panel.contentMinSize = NSSize(width: 200, height: 200 * 420 / 270)
+        panel.contentMaxSize = NSSize(width: 540, height: 840)
+        panel.contentAspectRatio = NSSize(width: 270, height: 420)
         panel.delegate = self
 
         if let screen = NSScreen.main {
