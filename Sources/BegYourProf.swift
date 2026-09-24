@@ -48,16 +48,19 @@ final class AuraModel: ObservableObject {
     @Published var worshipCount = UserDefaults.standard.integer(forKey: "worshipCount")
     @Published var messageIndex = 0
     @Published var showBlessing = false
+    @Published var customMessages = UserDefaults.standard.stringArray(forKey: "customMessages") ?? []
     @Published var deadline = UserDefaults.standard.object(forKey: "deadline") as? Date
     @Published var deadlineTitle = UserDefaults.standard.string(forKey: "deadlineTitle") ?? "D-DAY"
 
-    let messages = [
+    private let builtInMessages = [
         "오늘도 논문에 빛이 있으라",
         "수정 코멘트는 곧 계시입니다",
         "연구의 길을 밝혀주소서",
         "마감 앞에도 평온을 주소서",
         "리비전이 은총으로 바뀌기를"
     ]
+
+    var messages: [String] { builtInMessages + customMessages }
 
     init() {
         let customPortrait = PortraitStore.load()
@@ -87,6 +90,21 @@ final class AuraModel: ObservableObject {
             UserDefaults.standard.removeObject(forKey: "deadline")
             UserDefaults.standard.removeObject(forKey: "deadlineTitle")
         }
+    }
+
+    func addCustomMessage(_ value: String) {
+        let message = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        customMessages.append(message)
+        UserDefaults.standard.set(customMessages, forKey: "customMessages")
+        messageIndex = messages.count - 1
+    }
+
+    func removeCustomMessage(at index: Int) {
+        guard customMessages.indices.contains(index) else { return }
+        messageIndex = 0
+        customMessages.remove(at: index)
+        UserDefaults.standard.set(customMessages, forKey: "customMessages")
     }
 }
 
@@ -158,6 +176,7 @@ struct AuraCard: View {
     let hide: () -> Void
     let choosePhoto: () -> Void
     let chooseDeadline: () -> Void
+    let addPhrase: () -> Void
     @State private var now = Date()
 
     private var remainingSeconds: Int {
@@ -171,7 +190,7 @@ struct AuraCard: View {
     }
 
     private var clockText: String {
-        let hours = remainingSeconds % 86_400 / 3_600
+        let hours = remainingSeconds / 3_600
         let minutes = remainingSeconds % 3_600 / 60
         let seconds = remainingSeconds % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
@@ -248,12 +267,24 @@ struct AuraCard: View {
             }
             .frame(height: 208)
 
-            Text(model.portrait == nil ? "사진을 넣어 후광을 켜세요" : model.messages[model.messageIndex])
+            Button(action: addPhrase) {
+                HStack(spacing: 4) {
+                    Text(model.portrait == nil ? "사진을 넣어 후광을 켜세요" : model.messages[model.messageIndex])
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 9))
+                }
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(AuraStyle.ink)
-                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
                 .contentTransition(.opacity)
-                .padding(.top, 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("문구 추가하기")
+            .padding(.horizontal, 24)
+            .padding(.top, 1)
 
             Button(action: chooseDeadline) {
                 HStack(alignment: .center, spacing: 6) {
@@ -342,7 +373,7 @@ struct AuraCard: View {
             .padding(.top, 8)
             .padding(.bottom, 13)
         }
-        .frame(width: 270, height: 420)
+        .frame(width: 270, height: 439)
         .background {
             RoundedRectangle(cornerRadius: 23, style: .continuous)
                 .fill(.regularMaterial)
@@ -402,11 +433,12 @@ struct ResizableAuraView: View {
     let hide: () -> Void
     let choosePhoto: () -> Void
     let chooseDeadline: () -> Void
+    let addPhrase: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
-            let scale = min(geometry.size.width / 270, geometry.size.height / 420)
-            AuraCard(model: model, hide: hide, choosePhoto: choosePhoto, chooseDeadline: chooseDeadline)
+            let scale = min(geometry.size.width / 270, geometry.size.height / 439)
+            AuraCard(model: model, hide: hide, choosePhoto: choosePhoto, chooseDeadline: chooseDeadline, addPhrase: addPhrase)
                 .scaleEffect(scale)
                 .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -422,6 +454,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var worshipItem: NSMenuItem!
     private var resetPhotoItem: NSMenuItem!
     private var clearDeadlineItem: NSMenuItem!
+    private var removePhraseItem: NSMenuItem!
     private var isOverlayVisible = UserDefaults.standard.object(forKey: "overlayVisible") as? Bool ?? true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -431,11 +464,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             model: model,
             hide: { [weak self] in self?.toggleOverlay() },
             choosePhoto: { [weak self] in self?.choosePortrait() },
-            chooseDeadline: { [weak self] in self?.chooseDeadline() }
+            chooseDeadline: { [weak self] in self?.chooseDeadline() },
+            addPhrase: { [weak self] in self?.addPhrase() }
         )
         let savedWidth = UserDefaults.standard.double(forKey: "overlayWidth")
         let initialWidth = savedWidth > 0 ? min(max(savedWidth, 200), 540) : 270
-        let initialHeight = initialWidth * 420 / 270
+        let initialHeight = initialWidth * 439 / 270
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .resizable],
@@ -454,9 +488,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.contentMinSize = NSSize(width: 200, height: 200 * 420 / 270)
-        panel.contentMaxSize = NSSize(width: 540, height: 840)
-        panel.contentAspectRatio = NSSize(width: 270, height: 420)
+        panel.contentMinSize = NSSize(width: 200, height: 200 * 439 / 270)
+        panel.contentMaxSize = NSSize(width: 540, height: 878)
+        panel.contentAspectRatio = NSSize(width: 270, height: 439)
         panel.delegate = self
 
         if let screen = NSScreen.main {
@@ -499,6 +533,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         clearDeadlineItem.target = self
         clearDeadlineItem.isEnabled = model.deadline != nil
         menu.addItem(clearDeadlineItem)
+        menu.addItem(.separator())
+
+        let addPhraseItem = NSMenuItem(title: "문구 추가…", action: #selector(addPhrase), keyEquivalent: "m")
+        addPhraseItem.target = self
+        menu.addItem(addPhraseItem)
+
+        removePhraseItem = NSMenuItem(title: "사용자 문구 삭제…", action: #selector(removePhrase), keyEquivalent: "")
+        removePhraseItem.target = self
+        removePhraseItem.isEnabled = !model.customMessages.isEmpty
+        menu.addItem(removePhraseItem)
         menu.addItem(.separator())
 
         worshipItem = NSMenuItem(title: "🙏 한 번 더 경배하기", action: #selector(worshipFromMenu), keyEquivalent: "w")
@@ -617,6 +661,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func clearDeadline() {
         model.setDeadline(nil)
         clearDeadlineItem.isEnabled = false
+    }
+
+    @objc private func addPhrase() {
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 25))
+        input.placeholderString = "예: 리비전이 한 번에 통과되기를"
+
+        let alert = NSAlert()
+        alert.messageText = "문구 추가"
+        alert.informativeText = "60자 이내로 입력하세요. 경배할 때 다른 문구와 함께 돌아가며 표시됩니다."
+        alert.accessoryView = input
+        alert.addButton(withTitle: "추가")
+        alert.addButton(withTitle: "취소")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let phrase = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return }
+        guard phrase.count <= 60 else {
+            let warning = NSAlert()
+            warning.messageText = "문구가 너무 깁니다"
+            warning.informativeText = "60자 이내로 다시 입력해 주세요."
+            warning.runModal()
+            return
+        }
+        model.addCustomMessage(phrase)
+        removePhraseItem.isEnabled = true
+    }
+
+    @objc private func removePhrase() {
+        guard !model.customMessages.isEmpty else { return }
+        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 28))
+        picker.addItems(withTitles: model.customMessages)
+
+        let alert = NSAlert()
+        alert.messageText = "사용자 문구 삭제"
+        alert.informativeText = "삭제할 문구를 선택하세요."
+        alert.accessoryView = picker
+        alert.addButton(withTitle: "삭제")
+        alert.addButton(withTitle: "취소")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        model.removeCustomMessage(at: picker.indexOfSelectedItem)
+        removePhraseItem.isEnabled = !model.customMessages.isEmpty
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
