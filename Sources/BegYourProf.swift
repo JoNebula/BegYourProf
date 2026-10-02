@@ -204,23 +204,14 @@ struct AuraCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "sparkle")
-                Text("연구실 수호신")
-                    .tracking(2.5)
-                Image(systemName: "sparkle")
-            }
-            .font(.system(size: 10, weight: .bold, design: .rounded))
-            .foregroundStyle(AuraStyle.darkGold)
-            .padding(.top, 18)
-
             Text(model.portrait == nil ? "BegYourProf" : "지도교수님 강림")
                 .font(.system(size: 21, weight: .heavy, design: .serif))
                 .foregroundStyle(AuraStyle.ink)
-                .padding(.top, 5)
+                .padding(.top, 16)
 
             ZStack {
                 AuraRays()
+                    .scaleEffect(1.08)
                 Button(action: choosePhoto) {
                     Group {
                         if let portrait = model.portrait {
@@ -239,7 +230,7 @@ struct AuraCard: View {
                             .background(.white.opacity(0.82))
                         }
                     }
-                    .frame(width: 132, height: 172)
+                    .frame(width: 170, height: 222)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -265,13 +256,13 @@ struct AuraCard: View {
                 Text("✦")
                     .font(.system(size: 22))
                     .foregroundStyle(AuraStyle.gold)
-                    .offset(x: -89, y: -81)
+                    .offset(x: -107, y: -101)
                 Text("✦")
                     .font(.system(size: 16))
                     .foregroundStyle(AuraStyle.gold)
-                    .offset(x: 91, y: 60)
+                    .offset(x: 107, y: 78)
             }
-            .frame(height: 208)
+            .frame(height: 258)
 
             Button(action: addPhrase) {
                 Text(model.portrait == nil ? "사진을 넣어 후광을 켜세요" : model.messages[model.messageIndex])
@@ -365,17 +356,9 @@ struct AuraCard: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 25)
             .padding(.top, 9)
-
-            HStack(spacing: 4) {
-                Image(systemName: "hand.draw")
-                Text("빈 곳: 이동 · 테두리: 크기 조절")
-            }
-            .font(.system(size: 9))
-            .foregroundStyle(AuraStyle.ink.opacity(0.55))
-            .padding(.top, 8)
-            .padding(.bottom, 13)
+            .padding(.bottom, 22)
         }
-        .frame(width: 270, height: 439)
+        .frame(width: 270, height: 460)
         .background {
             RoundedRectangle(cornerRadius: 23, style: .continuous)
                 .fill(.regularMaterial)
@@ -439,7 +422,7 @@ struct ResizableAuraView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let scale = min(geometry.size.width / 270, geometry.size.height / 439)
+            let scale = min(geometry.size.width / 270, geometry.size.height / 460)
             AuraCard(model: model, hide: hide, choosePhoto: choosePhoto, chooseDeadline: chooseDeadline, addPhrase: addPhrase)
                 .scaleEffect(scale)
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -471,7 +454,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         let savedWidth = UserDefaults.standard.double(forKey: "overlayWidth")
         let initialWidth = savedWidth > 0 ? min(max(savedWidth, 200), 540) : 270
-        let initialHeight = initialWidth * 439 / 270
+        let initialHeight = initialWidth * 460 / 270
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .resizable],
@@ -490,9 +473,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
-        panel.contentMinSize = NSSize(width: 200, height: 200 * 439 / 270)
-        panel.contentMaxSize = NSSize(width: 540, height: 878)
-        panel.contentAspectRatio = NSSize(width: 270, height: 439)
+        panel.contentMinSize = NSSize(width: 200, height: 200 * 460 / 270)
+        panel.contentMaxSize = NSSize(width: 540, height: 920)
+        panel.contentAspectRatio = NSSize(width: 270, height: 460)
         panel.delegate = self
 
         if let screen = NSScreen.main {
